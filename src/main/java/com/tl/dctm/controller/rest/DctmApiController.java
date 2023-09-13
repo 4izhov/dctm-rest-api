@@ -15,7 +15,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Objects;
 
 @RestController
 @RequestMapping("${api.base.url}")
@@ -85,7 +84,7 @@ public class DctmApiController {
     public ResponseEntity<ApiResponse<TaskInfoDto>> handleUserTasksRequest(
             @PathVariable("userName") String userName,
             HttpServletRequest httpServletRequest,
-            HttpServletResponse httpServletResponse) throws DfException {
+            HttpServletResponse httpServletResponse) {
         ApiResponse<TaskInfoDto> response;
         // get user's inbox items from DCTM
         try {
