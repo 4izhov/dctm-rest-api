@@ -3,6 +3,7 @@ package com.tl.dctm.controller.rest;
 import com.documentum.fc.common.DfException;
 import com.tl.dctm.dto.ApiResponse;
 import com.tl.dctm.dto.LoginInfoDto;
+import com.tl.dctm.dto.TaskInfoDto;
 import com.tl.dctm.dto.UserInfoDto;
 import com.tl.dctm.service.DctmService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
 
@@ -37,8 +39,8 @@ public class DctmApiController {
                     .data(Collections.singleton(userInfoDto))
                     .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
                     .httpStatusCode(httpServletResponse.getStatus())
-                    .message(HttpStatus.OK.getReasonPhrase())
-                    .debugMessage(HttpStatus.OK.toString())
+                    .message(httpServletRequest.getRequestURL().toString())
+                    .debugMessage(httpServletRequest.getRequestURI())
                     .build();
         } catch (DfException exception) {
             response = ApiResponse.<UserInfoDto>builder()
@@ -61,10 +63,8 @@ public class DctmApiController {
         try {
             LoginInfoDto loginInfoDto = dctmService.getUserLoginInfo(userName);
             response = ApiResponse.<LoginInfoDto>builder()
-                    .message(Objects.requireNonNull(
-                            HttpStatus.resolve(httpServletResponse.getStatus()))
-                            .getReasonPhrase())
-                    .debugMessage(httpServletResponse.toString())
+                    .message(httpServletRequest.getRequestURL().toString())
+                    .debugMessage(httpServletRequest.getRequestURI())
                     .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
                     .httpStatusCode(httpServletResponse.getStatus())
                     .data(Collections.singleton(loginInfoDto))
@@ -76,6 +76,34 @@ public class DctmApiController {
                     .debugMessage(httpServletRequest.getRequestURI())
                     .message(exception.getLocalizedMessage())
                     .data(Collections.singleton(LoginInfoDto.builder().userName(userName).build()))
+                    .build();
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/v1/tasks/{userName}")
+    public ResponseEntity<ApiResponse<TaskInfoDto>> handleUserTasksRequest(
+            @PathVariable("userName") String userName,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse) throws DfException {
+        ApiResponse<TaskInfoDto> response;
+        // get user's inbox items from DCTM
+        try {
+            Collection<TaskInfoDto> taskInfoDtoCollection = dctmService.getUsersInboxItems(userName);
+            response = ApiResponse.<TaskInfoDto>builder()
+                    .data(taskInfoDtoCollection)
+                    .httpStatusCode(httpServletResponse.getStatus())
+                    .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
+                    .message(httpServletRequest.getRequestURL().toString())
+                    .debugMessage(httpServletRequest.getRequestURI())
+                    .build();
+        } catch (DfException exception) {
+            response = ApiResponse.<TaskInfoDto>builder()
+                    .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
+                    .httpStatusCode(httpServletResponse.getStatus())
+                    .debugMessage(httpServletRequest.getRequestURI())
+                    .message(exception.getLocalizedMessage())
+                    .data(Collections.singleton(TaskInfoDto.builder().build()))
                     .build();
         }
         return ResponseEntity.ok(response);
