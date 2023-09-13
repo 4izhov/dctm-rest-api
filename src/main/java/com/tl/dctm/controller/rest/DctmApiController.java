@@ -25,7 +25,7 @@ public class DctmApiController {
         this.dctmService = dctmService;
     }
 
-    @GetMapping("/{userName}")
+    @GetMapping("/v1/{userName}")
     public ResponseEntity<ApiResponse<UserInfoDto>> handleUserInfoRequest(
             @PathVariable("userName") String userName,
             HttpServletResponse httpServletResponse,
@@ -52,7 +52,7 @@ public class DctmApiController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/login/{userName}")
+    @GetMapping("/v1/login/{userName}")
     public ResponseEntity<ApiResponse<LoginInfoDto>> handleUserLoginInfoRequest(
             @PathVariable("userName") String userName,
             HttpServletRequest httpServletRequest,
