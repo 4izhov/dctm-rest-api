@@ -2,6 +2,7 @@ package com.tl.dctm.service;
 
 import com.documentum.fc.client.*;
 import com.documentum.fc.common.DfException;
+import com.documentum.fc.common.DfUtil;
 import com.documentum.fc.common.IDfId;
 import com.documentum.services.workflow.inbox.IInbox;
 import com.documentum.services.workflow.inbox.IInboxCollection;
@@ -98,5 +99,14 @@ public class DctmService {
                 packageObject.getId("r_component_chron_id") :
                 packageObject.getId("r_component_id");
         return  (IDfSysObject) dfSession.getObject(contentObjId);
+    }
+
+    public byte[] getObjectContent(String objectId) throws DfException {
+        byte[] data = new byte[]{};
+        IDfPersistentObject dfObject = dfSession.getObject(DfUtil.toId(objectId));
+        if (dfObject instanceof IDfSysObject){
+            data = ((IDfSysObject)dfObject).getContent().readAllBytes();
+        }
+        return data;
     }
 }

@@ -4,7 +4,9 @@ import com.documentum.fc.common.DfException;
 import com.tl.dctm.dto.*;
 import com.tl.dctm.service.DctmService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -109,4 +111,44 @@ public class DctmApiController {
         }
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/v1/content")
+    public ResponseEntity<ApiResponse<ContentDto>> handleContentRequest(
+            @RequestBody ObjectInfo payload,
+            HttpServletRequest httpServletRequest,
+            HttpServletResponse httpServletResponse){
+        ApiResponse<ContentDto> response;
+        try {
+            byte[] data = dctmService.getObjectContent(payload.getObjectId());
+            response = ApiResponse.<ContentDto>builder()
+                    .debugMessage(httpServletRequest.getRequestURI())
+                    .message(httpServletRequest.getRequestURL().toString())
+                    .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
+                    .httpStatusCode(httpServletResponse.getStatus())
+                    .data(Collections.singleton(ContentDto.builder().data(data).build()))
+                    .build();
+        } catch (Exception exception) {
+            response = ApiResponse.<ContentDto>builder()
+                    .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
+                    .httpStatusCode(httpServletResponse.getStatus())
+                    .debugMessage(httpServletRequest.getRequestURI())
+                    .message(exception.getLocalizedMessage())
+                    .data(Collections.singleton(ContentDto.builder().data(new byte[]{}).build()))
+                    .build();
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/v2/content")
+    public ResponseEntity<ByteArrayResource> handleContentRequest(
+            @RequestBody ObjectInfo payload) throws DfException {
+        byte[] data = dctmService.getObjectContent(payload.getObjectId());
+        return ResponseEntity.ok()
+//                .header(HttpHeaders.CONTENT_DISPOSITION,
+//                        "attachment;filename="+ path.getFileName().toString())
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentLength(data.length)
+                .body(new ByteArrayResource(data));
+    }
+
 }

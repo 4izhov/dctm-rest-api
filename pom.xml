@@ -66,6 +66,11 @@
 			<scope>system</scope>
 			<systemPath>${project.ext.libs.dir}/log4j-core-2.13.3.jar</systemPath>
 		</dependency>
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.11.0</version>
+		</dependency>
 	</dependencies>
 
 	<build>
