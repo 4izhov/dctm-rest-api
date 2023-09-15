@@ -1,10 +1,7 @@
 package com.tl.dctm.controller.rest;
 
 import com.documentum.fc.common.DfException;
-import com.tl.dctm.dto.ApiResponse;
-import com.tl.dctm.dto.LoginInfoDto;
-import com.tl.dctm.dto.TaskInfoDto;
-import com.tl.dctm.dto.UserInfoDto;
+import com.tl.dctm.dto.*;
 import com.tl.dctm.service.DctmService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -26,14 +23,15 @@ public class DctmApiController {
         this.dctmService = dctmService;
     }
 
-    @GetMapping("/v1/{userName}")
+    @GetMapping("/v1/userInfo")
     public ResponseEntity<ApiResponse<UserInfoDto>> handleUserInfoRequest(
-            @PathVariable("userName") String userName,
+            @RequestBody LoginInfoDto payload,
             HttpServletResponse httpServletResponse,
             HttpServletRequest httpServletRequest){
         ApiResponse<UserInfoDto> response;
         try {
-            UserInfoDto userInfoDto = dctmService.getUserInfo(userName);
+            
+            UserInfoDto userInfoDto = dctmService.getUserInfo(payload.getUserName());
             response = ApiResponse.<UserInfoDto>builder()
                     .data(Collections.singleton(userInfoDto))
                     .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
@@ -53,14 +51,15 @@ public class DctmApiController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/v1/login/{userName}")
+    @GetMapping("/v1/login")
     public ResponseEntity<ApiResponse<LoginInfoDto>> handleUserLoginInfoRequest(
-            @PathVariable("userName") String userName,
+            @RequestBody LoginInfoDto payload,
             HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse) {
         ApiResponse<LoginInfoDto> response;
         try {
-            LoginInfoDto loginInfoDto = dctmService.getUserLoginInfo(userName);
+            LoginInfoDto loginInfoDto =
+                    dctmService.getUserLoginInfo(payload.getUserName());
             response = ApiResponse.<LoginInfoDto>builder()
                     .message(httpServletRequest.getRequestURL().toString())
                     .debugMessage(httpServletRequest.getRequestURI())
@@ -74,21 +73,24 @@ public class DctmApiController {
                     .httpStatusCode(httpServletResponse.getStatus())
                     .debugMessage(httpServletRequest.getRequestURI())
                     .message(exception.getLocalizedMessage())
-                    .data(Collections.singleton(LoginInfoDto.builder().userName(userName).build()))
+                    .data(Collections.singleton(
+                            LoginInfoDto.builder().userName(payload.getUserName()).build()))
                     .build();
         }
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/v1/tasks/{userName}")
+    @GetMapping("/v1/tasks")
     public ResponseEntity<ApiResponse<TaskInfoDto>> handleUserTasksRequest(
-            @PathVariable("userName") String userName,
+            @RequestBody LoginInfoDto payload,
             HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse) {
         ApiResponse<TaskInfoDto> response;
-        // get user's inbox items from DCTM
+        // получаем задачи пользователя
+        // пока, в сессии супера. TODO изменить на получение пользовательской сесии
         try {
-            Collection<TaskInfoDto> taskInfoDtoCollection = dctmService.getUsersInboxItems(userName);
+            Collection<TaskInfoDto> taskInfoDtoCollection =
+                    dctmService.getUsersInboxItems(payload.getUserName());
             response = ApiResponse.<TaskInfoDto>builder()
                     .data(taskInfoDtoCollection)
                     .httpStatusCode(httpServletResponse.getStatus())

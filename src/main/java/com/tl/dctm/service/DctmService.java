@@ -72,6 +72,7 @@ public class DctmService {
                             .build()
             );
         }
+        inboxCollection.close();
         return taskCollection;
     }
 
@@ -88,6 +89,7 @@ public class DctmService {
                             .build()
             );
         }
+        packages.close();
         return result;
     }
 

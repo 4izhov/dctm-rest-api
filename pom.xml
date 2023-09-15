@@ -15,6 +15,7 @@
 	<description>Demo project for Spring Boot</description>
 	<properties>
 		<java.version>11</java.version>
+		<project.ext.libs.dir>e:/spring_projects/extlibs</project.ext.libs.dir>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -32,6 +33,39 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
+		<dependency>
+			<groupId>com.emc.documentum</groupId>
+			<artifactId>dfc</artifactId>
+			<version>21.4.0000.0147</version>
+			<scope>system</scope>
+			<systemPath>${project.ext.libs.dir}/dfc.jar</systemPath>
+		</dependency>
+		<dependency>
+			<groupId>com.emc.documentum</groupId>
+			<artifactId>workflow</artifactId>
+			<version>21.4.0000.0142</version>
+			<scope>system</scope>
+			<systemPath>${project.ext.libs.dir}/workflow.jar</systemPath>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-api</artifactId>
+			<scope>system</scope>
+			<systemPath>${project.ext.libs.dir}/log4j-api-2.13.3.jar</systemPath>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-to-slf4j</artifactId>
+			<scope>system</scope>
+			<systemPath>${project.ext.libs.dir}/log4j-1.2-api-2.13.3.jar</systemPath>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-core</artifactId>
+			<scope>system</scope>
+			<systemPath>${project.ext.libs.dir}/log4j-core-2.13.3.jar</systemPath>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -47,6 +81,21 @@
 						</exclude>
 					</excludes>
 				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>build-info</goal>
+						</goals>
+						<configuration>
+							<additionalProperties>
+								<encoding.source>UTF-8</encoding.source>
+								<encoding.reporting>UTF-8</encoding.reporting>
+								<java.source>${maven.compiler.source}</java.source>
+								<java.target>${maven.compiler.target}</java.target>
+							</additionalProperties>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
