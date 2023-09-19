@@ -53,6 +53,8 @@ public class DctmService {
                 IInbox.class.getName(), dfSession.getSessionManager());
         inboxService.setDocbase(dfSession.getDocbaseName());
         inboxService.setUserName(userName);
+        inboxService.setQueryDocInfo(true);
+        inboxService.setAdditionalAttributes("message");
         inboxService.setFilter(IInbox.DF_WORKFLOWTASK);
         inboxService.setSortBy("date_sent", true);
         IInboxCollection inboxCollection = inboxService.getItems();
@@ -64,10 +66,10 @@ public class DctmService {
                             .stage(TaskState.getState(inboxCollection.getTaskState()))
                             .title(inboxCollection.getTaskName())
                             .author(inboxCollection.getSentBy())
-                            .body(inboxCollection.getString("task_subject"))
+                            .body(getTaskMessage(inboxCollection))
                             .dateSent(inboxCollection.getDateSent().getDate().getTime())
                             .priority(TaskPriority.getPriority(inboxCollection.getPriority()))
-                            .content(getContentInfo(inboxCollection.getId("item_id")))
+                            .content(getContentInfo(inboxCollection))
                             .dueDate(getDueDate(inboxCollection.getDueDate(),calendar.getTime()))
                             .build()
             );
@@ -88,28 +90,23 @@ public class DctmService {
         return calendar;
     }
 
-    private Collection<TaskContentInfoDto> getContentInfo(IDfId workItemId) throws DfException {
+    private Collection<TaskContentInfoDto> getContentInfo(
+            IInboxCollection inboxCollectionItem) throws DfException {
         Collection<TaskContentInfoDto> result = new ArrayList<>();
-        IDfWorkitem workItem = (IDfWorkitem) dfSession.getObject(workItemId);
-        IDfCollection packages = workItem.getPackages("");
-        while (packages.next()){
-            IDfSysObject packageComponent = getContentObject(packages.getTypedObject());
-            result.add(
-                    TaskContentInfoDto.builder()
-                            .name(packageComponent.getObjectName())
-                            .id(packageComponent.getObjectId().getId())
-                            .build()
-            );
+        int countOfDocs = inboxCollectionItem.getDocumentCount();
+        for (int i = 0; i < countOfDocs; i++) {
+            result.add(TaskContentInfoDto.builder()
+                    .name(inboxCollectionItem.getDocumentObjectName(i))
+                    .id(inboxCollectionItem.getDocumentObjectId(0).getId())
+                    .build());
         }
-        packages.close();
         return result;
     }
 
-    private IDfSysObject getContentObject(IDfTypedObject packageObject) throws DfException {
-        IDfId contentObjId = packageObject.hasAttr("r_component_chron_id") ?
-                packageObject.getId("r_component_chron_id") :
-                packageObject.getId("r_component_id");
-        return  (IDfSysObject) dfSession.getObject(contentObjId);
+    private String getTaskMessage(IInboxCollection inboxCollectionItem) throws DfException {
+        return inboxCollectionItem.getString(
+                inboxCollectionItem.hasAttr("message")?"message":"task_subject"
+        );
     }
 
     public byte[] getObjectContent(String objectId) throws DfException {

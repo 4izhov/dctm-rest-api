@@ -23,4 +23,5 @@ public class ApiResponse<T> {
     @Builder.Default private String debugMessage = "";
     @Builder.Default private String message = "";
     @Builder.Default private Collection<T> data = Collections.emptyList();
+    @Builder.Default private Integer returnCode = 0;
 }

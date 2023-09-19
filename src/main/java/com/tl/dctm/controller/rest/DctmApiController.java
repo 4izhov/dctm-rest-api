@@ -77,6 +77,7 @@ public class DctmApiController {
                     .message(exception.getLocalizedMessage())
                     .data(Collections.singleton(
                             LoginInfoDto.builder().userName(payload.getUserName()).build()))
+                    .returnCode(1)
                     .build();
         }
         return ResponseEntity.ok(response);
@@ -107,6 +108,7 @@ public class DctmApiController {
                     .debugMessage(httpServletRequest.getRequestURI())
                     .message(exception.getLocalizedMessage())
                     .data(Collections.singleton(TaskInfoDto.builder().build()))
+                    .returnCode(1)
                     .build();
         }
         return ResponseEntity.ok(response);
@@ -134,6 +136,7 @@ public class DctmApiController {
                     .debugMessage(httpServletRequest.getRequestURI())
                     .message(exception.getLocalizedMessage())
                     .data(Collections.singleton(ContentDto.builder().data(new byte[]{}).build()))
+                    .returnCode(1)
                     .build();
         }
         return ResponseEntity.ok(response);

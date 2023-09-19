@@ -33,9 +33,5 @@ public class MvcConfig implements WebMvcConfigurer {
         if (!dfSessionManager.hasIdentity(dctmRepoName))
             dfSessionManager.setIdentity(dctmRepoName,dfLoginInfo());
         return dfSessionManager.getSession(dctmRepoName);
-
-//        DfAdminSessionManager dfAdminSessionManager = new DfAdminSessionManager();
-//        dfAdminSessionManager.setIdentity(dctmRepoName,dfLoginInfo());
-//        return dfAdminSessionManager.getSession(dctmRepoName);
     }
 }
