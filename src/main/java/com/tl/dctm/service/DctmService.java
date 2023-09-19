@@ -1,9 +1,7 @@
 package com.tl.dctm.service;
 
 import com.documentum.fc.client.*;
-import com.documentum.fc.common.DfException;
-import com.documentum.fc.common.DfUtil;
-import com.documentum.fc.common.IDfId;
+import com.documentum.fc.common.*;
 import com.documentum.services.workflow.inbox.IInbox;
 import com.documentum.services.workflow.inbox.IInboxCollection;
 import com.tl.dctm.dto.LoginInfoDto;
@@ -13,8 +11,7 @@ import com.tl.dctm.dto.UserInfoDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.*;
 
 @Service
 public class DctmService {
@@ -60,21 +57,35 @@ public class DctmService {
         inboxService.setSortBy("date_sent", true);
         IInboxCollection inboxCollection = inboxService.getItems();
         while (inboxCollection.next()){
+            Calendar calendar = getCalendarData(inboxCollection.getDateSent().getDate());
             taskCollection.add(
                     TaskInfoDto.builder()
                             .id(inboxCollection.getObjectId().getId())
-                            .stage(inboxCollection.getTaskState())
+                            .stage(TaskState.getState(inboxCollection.getTaskState()))
                             .title(inboxCollection.getTaskName())
                             .author(inboxCollection.getSentBy())
                             .body(inboxCollection.getString("task_subject"))
-                            .date(inboxCollection.getDateSent().getDate().getTime())
-                            .level(String.valueOf(inboxCollection.getPriority()))
+                            .dateSent(inboxCollection.getDateSent().getDate().getTime())
+                            .priority(TaskPriority.getPriority(inboxCollection.getPriority()))
                             .content(getContentInfo(inboxCollection.getId("item_id")))
+                            .dueDate(getDueDate(inboxCollection.getDueDate(),calendar.getTime()))
                             .build()
             );
         }
         inboxCollection.close();
         return taskCollection;
+    }
+
+    private Long getDueDate(IDfTime dueDate, Date defaultDate) {
+        return Objects.equals(dueDate,DfTime.DF_NULLDATE)?
+                defaultDate.getTime():dueDate.getDate().getTime();
+    }
+
+    private Calendar getCalendarData(Date date){
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(date);
+        calendar.roll(Calendar.DAY_OF_MONTH,3);
+        return calendar;
     }
 
     private Collection<TaskContentInfoDto> getContentInfo(IDfId workItemId) throws DfException {
@@ -108,5 +119,51 @@ public class DctmService {
             data = ((IDfSysObject)dfObject).getContent().readAllBytes();
         }
         return data;
+    }
+
+    private enum TaskState {
+        Acquired("acquired"),Dormant("dormant"),Faulted("faulted"),
+        Finished("finished"),Paused("paused"),unknown("unknown");
+
+        private final String state;
+
+        TaskState(String state) {
+            this.state = state;
+        }
+
+        public static String getState(Integer wiState){
+            switch (wiState) {
+                case IDfWorkitem.DF_WI_STATE_ACQUIRED:
+                    return Acquired.state;
+                case IDfWorkitem.DF_WI_STATE_DORMANT:
+                    return Dormant.state;
+                case IDfWorkitem.DF_WI_STATE_FAULTED:
+                    return Faulted.state;
+                case IDfWorkitem.DF_WI_STATE_FINISHED:
+                    return Finished.state;
+                case IDfWorkitem.DF_WI_STATE_PAUSED:
+                    return Paused.state;
+                default: return unknown.state;
+            }
+        }
+    }
+
+    private enum TaskPriority{
+        Low("low"),Medium("medium"),High("high"),Unknown("unknown");
+
+        private final String priority;
+
+        TaskPriority(String value) {
+            this.priority =value;
+        }
+
+        public static String getPriority(Integer value){
+            switch (value){
+                case 0: return Low.priority;
+                case 5: return Medium.priority;
+                case 10: return High.priority;
+                default: return Unknown.priority;
+            }
+        }
     }
 }
