@@ -4,6 +4,7 @@ import com.documentum.fc.common.DfException;
 import com.tl.dctm.dto.*;
 import com.tl.dctm.service.DctmService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -14,11 +15,16 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @RestController
 @RequestMapping("${api.base.url}")
 public class DctmApiController {
+    @Value("${http-request.header.dctm-ticket}")
+    private String httpHeaderNameDctmTicket;
     private final DctmService dctmService;
+    private final Logger logger = Logger.getLogger(getClass().getName());
 
     @Autowired
     public DctmApiController(DctmService dctmService) {
@@ -27,13 +33,17 @@ public class DctmApiController {
 
     @GetMapping("/v1/userInfo")
     public ResponseEntity<ApiResponse<UserInfoDto>> handleUserInfoRequest(
-            @RequestBody LoginInfoDto payload,
+            @RequestParam String user,
             HttpServletResponse httpServletResponse,
             HttpServletRequest httpServletRequest){
         ApiResponse<UserInfoDto> response;
         try {
-            
-            UserInfoDto userInfoDto = dctmService.getUserInfo(payload.getUserName());
+            logger.log(Level.INFO,"ticket: {0}",
+                    httpServletRequest.getHeader(httpHeaderNameDctmTicket)
+                            .substring(0,128).concat("..."));
+            boolean isTicketOk = dctmService.validateTicket(
+                    httpServletRequest.getHeader(httpHeaderNameDctmTicket));
+            UserInfoDto userInfoDto = dctmService.getUserInfo(user);
             response = ApiResponse.<UserInfoDto>builder()
                     .data(Collections.singleton(userInfoDto))
                     .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
@@ -53,7 +63,7 @@ public class DctmApiController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/v1/login")
+    @PostMapping("/v1/login")
     public ResponseEntity<ApiResponse<LoginInfoDto>> handleUserLoginInfoRequest(
             @RequestBody LoginInfoDto payload,
             HttpServletRequest httpServletRequest,
@@ -85,15 +95,18 @@ public class DctmApiController {
 
     @GetMapping("/v1/tasks")
     public ResponseEntity<ApiResponse<TaskInfoDto>> handleUserTasksRequest(
-            @RequestBody LoginInfoDto payload,
+            @RequestParam String user,
             HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse) {
         ApiResponse<TaskInfoDto> response;
         // получаем задачи пользователя
         // пока, в сессии супера. TODO изменить на получение пользовательской сесии
         try {
+            boolean isTicketOk = dctmService.validateTicket(
+                    httpServletRequest.getHeader(httpHeaderNameDctmTicket));
+
             Collection<TaskInfoDto> taskInfoDtoCollection =
-                    dctmService.getUsersInboxItems(payload.getUserName());
+                    dctmService.getUsersInboxItems(user);
             response = ApiResponse.<TaskInfoDto>builder()
                     .data(taskInfoDtoCollection)
                     .httpStatusCode(httpServletResponse.getStatus())
@@ -116,12 +129,15 @@ public class DctmApiController {
 
     @GetMapping("/v1/content")
     public ResponseEntity<ApiResponse<ContentDto>> handleContentRequest(
-            @RequestBody ObjectInfo payload,
+            @RequestParam String objectId,
             HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse){
         ApiResponse<ContentDto> response;
         try {
-            byte[] data = dctmService.getObjectContent(payload.getObjectId());
+            boolean isTicketOk = dctmService.validateTicket(
+                    httpServletRequest.getHeader(httpHeaderNameDctmTicket));
+
+            byte[] data = dctmService.getObjectContent(objectId);
             response = ApiResponse.<ContentDto>builder()
                     .debugMessage(httpServletRequest.getRequestURI())
                     .message(httpServletRequest.getRequestURL().toString())
@@ -144,8 +160,12 @@ public class DctmApiController {
 
     @GetMapping("/v2/content")
     public ResponseEntity<ByteArrayResource> handleContentRequest(
-            @RequestBody ObjectInfo payload) throws DfException {
-        byte[] data = dctmService.getObjectContent(payload.getObjectId());
+            @RequestParam String objectId,
+            HttpServletRequest httpServletRequest) throws DfException {
+        boolean isTicketOk = dctmService.validateTicket(
+                httpServletRequest.getHeader(httpHeaderNameDctmTicket));
+
+        byte[] data = dctmService.getObjectContent(objectId);
         return ResponseEntity.ok()
 //                .header(HttpHeaders.CONTENT_DISPOSITION,
 //                        "attachment;filename="+ path.getFileName().toString())

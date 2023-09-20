@@ -12,9 +12,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @Service
 public class DctmService {
+    private final Logger logger = Logger.getLogger(getClass().getName());
     private final IDfSession dfSession;
 
     @Autowired
@@ -116,6 +119,12 @@ public class DctmService {
             data = ((IDfSysObject)dfObject).getContent().readAllBytes();
         }
         return data;
+    }
+
+    public boolean validateTicket(String ticket) {
+        logger.log(Level.INFO,"ticket: {0}",ticket);
+        // TODO реализация проверки тикета пользователя
+        return true;
     }
 
     private enum TaskState {
