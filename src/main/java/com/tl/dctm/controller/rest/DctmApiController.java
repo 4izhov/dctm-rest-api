@@ -15,8 +15,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Map;
 
 @RestController
 @RequestMapping("${api.base.url}")
@@ -24,7 +23,6 @@ public class DctmApiController {
     @Value("${http-request.header.dctm-ticket}")
     private String httpHeaderNameDctmTicket;
     private final DctmService dctmService;
-    private final Logger logger = Logger.getLogger(getClass().getName());
 
     @Autowired
     public DctmApiController(DctmService dctmService) {
@@ -38,11 +36,11 @@ public class DctmApiController {
             HttpServletRequest httpServletRequest){
         ApiResponse<UserInfoDto> response;
         try {
-            logger.log(Level.INFO,"ticket: {0}",
-                    httpServletRequest.getHeader(httpHeaderNameDctmTicket)
-                            .substring(0,128).concat("..."));
             boolean isTicketOk = dctmService.validateTicket(
                     httpServletRequest.getHeader(httpHeaderNameDctmTicket));
+            if (!isTicketOk){
+                throw new DfException("The user''s login ticket is invalid or expired.");
+            }
             UserInfoDto userInfoDto = dctmService.getUserInfo(user);
             response = ApiResponse.<UserInfoDto>builder()
                     .data(Collections.singleton(userInfoDto))
@@ -55,9 +53,10 @@ public class DctmApiController {
             response = ApiResponse.<UserInfoDto>builder()
                     .debugMessage(httpServletRequest.getRequestURI())
                     .message(exception.getLocalizedMessage())
-                    .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
-                    .httpStatusCode(httpServletResponse.getStatus())
+                    .httpStatus(HttpStatus.UNAUTHORIZED)
+                    .httpStatusCode(HttpStatus.UNAUTHORIZED.value())
                     .data(Collections.singleton(UserInfoDto.builder().build()))
+                    .returnCode(1)
                     .build();
         }
         return ResponseEntity.ok(response);
@@ -81,8 +80,8 @@ public class DctmApiController {
                     .build();
         } catch (DfException exception){
             response = ApiResponse.<LoginInfoDto>builder()
-                    .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
-                    .httpStatusCode(httpServletResponse.getStatus())
+                    .httpStatus(HttpStatus.UNAUTHORIZED)
+                    .httpStatusCode(HttpStatus.UNAUTHORIZED.value())
                     .debugMessage(httpServletRequest.getRequestURI())
                     .message(exception.getLocalizedMessage())
                     .data(Collections.singleton(
@@ -104,7 +103,9 @@ public class DctmApiController {
         try {
             boolean isTicketOk = dctmService.validateTicket(
                     httpServletRequest.getHeader(httpHeaderNameDctmTicket));
-
+            if (!isTicketOk){
+                throw new DfException("The user''s login ticket is invalid or expired.");
+            }
             Collection<TaskInfoDto> taskInfoDtoCollection =
                     dctmService.getUsersInboxItems(user);
             response = ApiResponse.<TaskInfoDto>builder()
@@ -116,8 +117,8 @@ public class DctmApiController {
                     .build();
         } catch (DfException exception) {
             response = ApiResponse.<TaskInfoDto>builder()
-                    .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
-                    .httpStatusCode(httpServletResponse.getStatus())
+                    .httpStatus(HttpStatus.UNAUTHORIZED)
+                    .httpStatusCode(HttpStatus.UNAUTHORIZED.value())
                     .debugMessage(httpServletRequest.getRequestURI())
                     .message(exception.getLocalizedMessage())
                     .data(Collections.singleton(TaskInfoDto.builder().build()))
@@ -136,14 +137,19 @@ public class DctmApiController {
         try {
             boolean isTicketOk = dctmService.validateTicket(
                     httpServletRequest.getHeader(httpHeaderNameDctmTicket));
-
-            byte[] data = dctmService.getObjectContent(objectId);
+            if (!isTicketOk){
+                throw new DfException("The user''s login ticket is invalid or expired.");
+            }
+            Map<String, Object> map = dctmService.getObjectContent(objectId);
             response = ApiResponse.<ContentDto>builder()
                     .debugMessage(httpServletRequest.getRequestURI())
                     .message(httpServletRequest.getRequestURL().toString())
                     .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
                     .httpStatusCode(httpServletResponse.getStatus())
-                    .data(Collections.singleton(ContentDto.builder().data(data).build()))
+                    .data(Collections.singleton(ContentDto.builder()
+                            .data((byte[]) map.get("data"))
+                            .mimeType((String) map.get("mimeType"))
+                            .build()))
                     .build();
         } catch (Exception exception) {
             response = ApiResponse.<ContentDto>builder()
@@ -151,7 +157,10 @@ public class DctmApiController {
                     .httpStatusCode(httpServletResponse.getStatus())
                     .debugMessage(httpServletRequest.getRequestURI())
                     .message(exception.getLocalizedMessage())
-                    .data(Collections.singleton(ContentDto.builder().data(new byte[]{}).build()))
+                    .data(Collections.singleton(ContentDto.builder()
+                            .data(new byte[]{})
+                            .mimeType("unknown")
+                            .build()))
                     .returnCode(1)
                     .build();
         }
@@ -164,8 +173,11 @@ public class DctmApiController {
             HttpServletRequest httpServletRequest) throws DfException {
         boolean isTicketOk = dctmService.validateTicket(
                 httpServletRequest.getHeader(httpHeaderNameDctmTicket));
-
-        byte[] data = dctmService.getObjectContent(objectId);
+        if (!isTicketOk){
+            throw new DfException("The user''s login ticket is invalid or expired.");
+        }
+        Map<String,Object> map = dctmService.getObjectContent(objectId);
+        byte[] data = (byte[]) map.get("data");
         return ResponseEntity.ok()
 //                .header(HttpHeaders.CONTENT_DISPOSITION,
 //                        "attachment;filename="+ path.getFileName().toString())

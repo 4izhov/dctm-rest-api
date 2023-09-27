@@ -8,4 +8,5 @@ import lombok.NoArgsConstructor;
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class ContentDto {
     private byte[] data;
+    private String mimeType;
 }

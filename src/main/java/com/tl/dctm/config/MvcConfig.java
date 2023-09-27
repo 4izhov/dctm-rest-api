@@ -27,9 +27,14 @@ public class MvcConfig implements WebMvcConfigurer {
     }
 
     @Bean
+    public IDfClient dfClient() throws DfException {
+        return new DfClientX().getLocalClient();
+    }
+
+    @Bean
     public IDfSession dfSession() throws DfException {
-        IDfClient dfClient = new DfClientX().getLocalClient();
-        IDfSessionManager dfSessionManager = dfClient.newSessionManager();
+//        IDfClient dfClient = new DfClientX().getLocalClient();
+        IDfSessionManager dfSessionManager = dfClient().newSessionManager();
         if (!dfSessionManager.hasIdentity(dctmRepoName))
             dfSessionManager.setIdentity(dctmRepoName,dfLoginInfo());
         return dfSessionManager.getSession(dctmRepoName);

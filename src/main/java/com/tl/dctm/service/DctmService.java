@@ -9,25 +9,33 @@ import com.tl.dctm.dto.TaskContentInfoDto;
 import com.tl.dctm.dto.TaskInfoDto;
 import com.tl.dctm.dto.UserInfoDto;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 @Service
 public class DctmService {
     private final Logger logger = Logger.getLogger(getClass().getName());
     private final IDfSession dfSession;
+    private final IDfClient dfClient;
+    @Value("${dctm.repo.name}")
+    private String dctmRepoName;
+    @Value("${ticket.validity.timeout}")
+    private Integer ticketValidityTimeout;
 
     @Autowired
-    public DctmService(IDfSession dfSession) {
+    public DctmService(IDfSession dfSession, IDfClient dfClient) {
         this.dfSession = dfSession;
+        this.dfClient = dfClient;
     }
 
     public UserInfoDto getUserInfo(String userName) throws DfException {
+        validateUser(userName);
         IDfUser dfUser = dfSession.getUser(userName);
-        if (dfUser == null) throw new DfException("User must be a valid Documentum User");
         return UserInfoDto.builder()
                 .name(dfUser.getUserName())
                 .id(dfUser.getObjectId().getId())
@@ -43,14 +51,16 @@ public class DctmService {
     }
 
     public LoginInfoDto getUserLoginInfo(String userName) throws DfException {
+        validateUser(userName);
         return LoginInfoDto.builder()
                 .userName(userName)
-                .userTicket(dfSession.getLoginTicketForUser(userName))
+                .userTicket(dfSession.getLoginTicketEx(userName,"global",
+                        ticketValidityTimeout,false,null))
                 .build();
-
     }
 
     public Collection<TaskInfoDto> getUsersInboxItems(String userName) throws DfException {
+        validateUser(userName);
         Collection<TaskInfoDto> taskCollection = new ArrayList<>();
         IInbox inboxService = (IInbox) dfSession.getClient().newService(
                 IInbox.class.getName(), dfSession.getSessionManager());
@@ -79,6 +89,13 @@ public class DctmService {
         }
         inboxCollection.close();
         return taskCollection;
+    }
+
+    private void validateUser(String userName) throws DfException {
+        if (Objects.isNull(userName) || userName.isBlank()
+                || Objects.isNull(dfSession.getUser(userName))){
+            throw new DfException("The user must be a valid Documentum User");
+        }
     }
 
     private Long getDueDate(IDfTime dueDate, Date defaultDate) {
@@ -112,19 +129,36 @@ public class DctmService {
         );
     }
 
-    public byte[] getObjectContent(String objectId) throws DfException {
+    public Map<String,Object> getObjectContent(String objectId) throws DfException {
+        String mimeType = "unknown";
         byte[] data = new byte[]{};
         IDfPersistentObject dfObject = dfSession.getObject(DfUtil.toId(objectId));
         if (dfObject instanceof IDfSysObject){
             data = ((IDfSysObject)dfObject).getContent().readAllBytes();
+            mimeType = ((IDfSysObject)dfObject).getFormat().getMIMEType();
         }
-        return data;
+        return Map.of("mimeType",mimeType,"data",data);
     }
 
-    public boolean validateTicket(String ticket) {
-        logger.log(Level.INFO,"ticket: {0}",ticket);
-        // TODO реализация проверки тикета пользователя
+    public boolean validateTicket(String ticket) throws DfException {
+        if (Objects.isNull(ticket) || ticket.isBlank())
+            throw new DfException("The HTTP Header with login ticket not found or empty.");
+        logger.log(Level.INFO,"ticket: {0}",ticket.substring(0,128).concat("..."));
+        try {
+            dfClient.authenticate(dctmRepoName,
+                    new DfLoginInfo(extractUserNameFromTicket(ticket),ticket));
+        } catch (DfAuthenticationException exception){
+            logger.log(Level.SEVERE,exception.getLocalizedMessage());
+            return false;
+        }
         return true;
+    }
+
+    private String extractUserNameFromTicket(String ticket) throws DfException {
+        return Arrays.stream(dfClient.getLoginTicketDiagnostics(ticket).split("\r\n"))
+                .filter(e->e.contains("User"))
+                .collect(Collectors.joining())
+                .split(":")[1].trim();
     }
 
     private enum TaskState {
