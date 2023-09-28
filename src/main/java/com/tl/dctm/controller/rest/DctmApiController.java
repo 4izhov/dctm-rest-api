@@ -186,7 +186,7 @@ public class DctmApiController {
                 .body(new ByteArrayResource(data));
     }
 
-    @PostMapping("/dump")
+    @GetMapping("/v1/dump")
     public ResponseEntity<String> handleDump(HttpServletRequest httpServletRequest)
             throws DfException {
         String dump = dctmService.getDump(
