@@ -36,12 +36,12 @@ public class DctmApiController {
             HttpServletRequest httpServletRequest){
         ApiResponse<UserInfoDto> response;
         try {
-            boolean isTicketOk = dctmService.validateTicket(
-                    httpServletRequest.getHeader(httpHeaderNameDctmTicket));
+            String ticket = httpServletRequest.getHeader(httpHeaderNameDctmTicket);
+            boolean isTicketOk = dctmService.validateTicket(ticket);
             if (!isTicketOk){
                 throw new DfException("The user''s login ticket is invalid or expired.");
             }
-            UserInfoDto userInfoDto = dctmService.getUserInfo(user);
+            UserInfoDto userInfoDto = dctmService.getUserInfo(user,ticket);
             response = ApiResponse.<UserInfoDto>builder()
                     .data(Collections.singleton(userInfoDto))
                     .httpStatus(HttpStatus.resolve(httpServletResponse.getStatus()))
@@ -70,7 +70,7 @@ public class DctmApiController {
         ApiResponse<LoginInfoDto> response;
         try {
             LoginInfoDto loginInfoDto =
-                    dctmService.getUserLoginInfo(payload.getUserName());
+                    dctmService.getUserLoginInfo(payload.getUserName(),payload.getUserTicket());
             response = ApiResponse.<LoginInfoDto>builder()
                     .message(httpServletRequest.getRequestURL().toString())
                     .debugMessage(httpServletRequest.getRequestURI())
@@ -101,13 +101,13 @@ public class DctmApiController {
         // получаем задачи пользователя
         // пока, в сессии супера. TODO изменить на получение пользовательской сесии
         try {
-            boolean isTicketOk = dctmService.validateTicket(
-                    httpServletRequest.getHeader(httpHeaderNameDctmTicket));
+            String ticket = httpServletRequest.getHeader(httpHeaderNameDctmTicket);
+            boolean isTicketOk = dctmService.validateTicket(ticket);
             if (!isTicketOk){
                 throw new DfException("The user''s login ticket is invalid or expired.");
             }
             Collection<TaskInfoDto> taskInfoDtoCollection =
-                    dctmService.getUsersInboxItems(user);
+                    dctmService.getUsersInboxItems(user,ticket);
             response = ApiResponse.<TaskInfoDto>builder()
                     .data(taskInfoDtoCollection)
                     .httpStatusCode(httpServletResponse.getStatus())
@@ -135,12 +135,12 @@ public class DctmApiController {
             HttpServletResponse httpServletResponse){
         ApiResponse<ContentDto> response;
         try {
-            boolean isTicketOk = dctmService.validateTicket(
-                    httpServletRequest.getHeader(httpHeaderNameDctmTicket));
+            String ticket = httpServletRequest.getHeader(httpHeaderNameDctmTicket);
+            boolean isTicketOk = dctmService.validateTicket(ticket);
             if (!isTicketOk){
                 throw new DfException("The user''s login ticket is invalid or expired.");
             }
-            Map<String, Object> map = dctmService.getObjectContent(objectId);
+            Map<String, Object> map = dctmService.getObjectContent(objectId,ticket);
             response = ApiResponse.<ContentDto>builder()
                     .debugMessage(httpServletRequest.getRequestURI())
                     .message(httpServletRequest.getRequestURL().toString())
@@ -171,12 +171,12 @@ public class DctmApiController {
     public ResponseEntity<ByteArrayResource> handleContentRequest(
             @RequestParam String objectId,
             HttpServletRequest httpServletRequest) throws DfException {
-        boolean isTicketOk = dctmService.validateTicket(
-                httpServletRequest.getHeader(httpHeaderNameDctmTicket));
+        String ticket = httpServletRequest.getHeader(httpHeaderNameDctmTicket);
+        boolean isTicketOk = dctmService.validateTicket(ticket);
         if (!isTicketOk){
             throw new DfException("The user''s login ticket is invalid or expired.");
         }
-        Map<String,Object> map = dctmService.getObjectContent(objectId);
+        Map<String,Object> map = dctmService.getObjectContent(objectId,ticket);
         byte[] data = (byte[]) map.get("data");
         return ResponseEntity.ok()
 //                .header(HttpHeaders.CONTENT_DISPOSITION,

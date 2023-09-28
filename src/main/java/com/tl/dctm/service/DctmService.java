@@ -32,63 +32,84 @@ public class DctmService {
         this.dfClient = dfClient;
     }
 
-    public UserInfoDto getUserInfo(String userName) throws DfException {
+    public UserInfoDto getUserInfo(String userName,String ticket) throws DfException {
         validateUser(userName);
-        IDfUser dfUser = dfSession.getUser(userName);
-        return UserInfoDto.builder()
-                .name(dfUser.getUserName())
-                .id(dfUser.getObjectId().getId())
-                .aclName(dfUser.getACLName())
-                .address(dfUser.getUserAddress())
-                .os(dfUser.getUserOSName())
-                .state(dfUser.getUserState())
-                .capability(dfUser.getClientCapability())
-                .description(dfUser.getDescription())
-                .folder(dfUser.getDefaultFolder())
-                .privileges(dfUser.getUserPrivileges())
-                .build();
+        IDfSession session = null;
+        try {
+            session = dfClient.newSession(dctmRepoName,new DfLoginInfo(userName,ticket));
+            IDfUser dfUser = session.getUser(userName);
+            return UserInfoDto.builder()
+                    .name(dfUser.getUserName())
+                    .id(dfUser.getObjectId().getId())
+                    .aclName(dfUser.getACLName())
+                    .address(dfUser.getUserAddress())
+                    .os(dfUser.getUserOSName())
+                    .state(dfUser.getUserState())
+                    .capability(dfUser.getClientCapability())
+                    .description(dfUser.getDescription())
+                    .folder(dfUser.getDefaultFolder())
+                    .privileges(dfUser.getUserPrivileges())
+                    .build();
+        } finally {
+            if (!Objects.isNull(session) && session.isConnected())
+                session.disconnect();
+        }
     }
 
-    public LoginInfoDto getUserLoginInfo(String userName) throws DfException {
+    public LoginInfoDto getUserLoginInfo(String userName, String userPwd) throws DfException {
         validateUser(userName);
+        IDfLoginInfo dfLoginInfo = new DfLoginInfo(userName,userPwd);
+        try {
+            dfClient.authenticate(dctmRepoName,dfLoginInfo);
+        } catch (DfAuthenticationException exception) {
+            logger.log(Level.SEVERE, exception.getLocalizedMessage());
+            throw new DfException(exception);
+        }
         return LoginInfoDto.builder()
                 .userName(userName)
                 .userTicket(dfSession.getLoginTicketEx(userName,"global",
                         ticketValidityTimeout,false,null))
-//                .userTicket(dfSession.getLoginTicketForUser(userName))
                 .build();
     }
 
-    public Collection<TaskInfoDto> getUsersInboxItems(String userName) throws DfException {
+    public Collection<TaskInfoDto> getUsersInboxItems(String userName, String ticket)
+            throws DfException {
         validateUser(userName);
-        Collection<TaskInfoDto> taskCollection = new ArrayList<>();
-        IInbox inboxService = (IInbox) dfSession.getClient().newService(
-                IInbox.class.getName(), dfSession.getSessionManager());
-        inboxService.setDocbase(dfSession.getDocbaseName());
-        inboxService.setUserName(userName);
-        inboxService.setQueryDocInfo(true);
-        inboxService.setAdditionalAttributes("message");
-        inboxService.setFilter(IInbox.DF_WORKFLOWTASK);
-        inboxService.setSortBy("date_sent", true);
-        IInboxCollection inboxCollection = inboxService.getItems();
-        while (inboxCollection.next()){
-            Calendar calendar = getCalendarData(inboxCollection.getDateSent().getDate());
-            taskCollection.add(
-                    TaskInfoDto.builder()
-                            .id(inboxCollection.getObjectId().getId())
-                            .stage(TaskState.getState(inboxCollection.getTaskState()))
-                            .title(inboxCollection.getTaskName())
-                            .author(inboxCollection.getSentBy())
-                            .body(getTaskMessage(inboxCollection))
-                            .dateSent(inboxCollection.getDateSent().getDate().getTime())
-                            .priority(TaskPriority.getPriority(inboxCollection.getPriority()))
-                            .content(getContentInfo(inboxCollection))
-                            .dueDate(getDueDate(inboxCollection.getDueDate(),calendar.getTime()))
-                            .build()
-            );
+        IDfSession oneTimeDfSession = null;
+        try {
+            oneTimeDfSession = dfClient.newSession(dctmRepoName, new DfLoginInfo(userName,ticket));
+            Collection<TaskInfoDto> taskCollection = new ArrayList<>();
+            IInbox inboxService = (IInbox) oneTimeDfSession.getClient().newService(
+                    IInbox.class.getName(), oneTimeDfSession.getSessionManager());
+            inboxService.setDocbase(oneTimeDfSession.getDocbaseName());
+            inboxService.setUserName(userName);
+            inboxService.setQueryDocInfo(true);
+            inboxService.setAdditionalAttributes("message");
+            inboxService.setFilter(IInbox.DF_WORKFLOWTASK);
+            inboxService.setSortBy("date_sent", true);
+            IInboxCollection inboxCollection = inboxService.getItems();
+            while (inboxCollection.next()){
+                Calendar calendar = getCalendarData(inboxCollection.getDateSent().getDate());
+                taskCollection.add(
+                        TaskInfoDto.builder()
+                                .id(inboxCollection.getObjectId().getId())
+                                .stage(TaskState.getState(inboxCollection.getTaskState()))
+                                .title(inboxCollection.getTaskName())
+                                .author(inboxCollection.getSentBy())
+                                .body(getTaskMessage(inboxCollection))
+                                .dateSent(inboxCollection.getDateSent().getDate().getTime())
+                                .priority(TaskPriority.getPriority(inboxCollection.getPriority()))
+                                .content(getContentInfo(inboxCollection))
+                                .dueDate(getDueDate(inboxCollection.getDueDate(),calendar.getTime()))
+                                .build()
+                );
+            }
+            inboxCollection.close();
+            return taskCollection;
+        } finally {
+            if (!Objects.isNull(oneTimeDfSession) && oneTimeDfSession.isConnected())
+                oneTimeDfSession.disconnect();
         }
-        inboxCollection.close();
-        return taskCollection;
     }
 
     private void validateUser(String userName) throws DfException {
@@ -129,15 +150,24 @@ public class DctmService {
         );
     }
 
-    public Map<String,Object> getObjectContent(String objectId) throws DfException {
+    public Map<String,Object> getObjectContent(String objectId, String ticket)
+            throws DfException {
         String mimeType = "unknown";
         byte[] data = new byte[]{};
-        IDfPersistentObject dfObject = dfSession.getObject(DfUtil.toId(objectId));
-        if (dfObject instanceof IDfSysObject){
-            data = ((IDfSysObject)dfObject).getContent().readAllBytes();
-            mimeType = ((IDfSysObject)dfObject).getFormat().getMIMEType();
+        IDfSession oneTimeDfSession = null;
+        try {
+            oneTimeDfSession = dfClient.newSession(dctmRepoName,
+                    new DfLoginInfo(extractUserNameFromTicket(ticket),ticket));
+            IDfPersistentObject dfObject = oneTimeDfSession.getObject(DfUtil.toId(objectId));
+            if (dfObject instanceof IDfSysObject){
+                data = ((IDfSysObject)dfObject).getContent().readAllBytes();
+                mimeType = ((IDfSysObject)dfObject).getFormat().getMIMEType();
+            }
+            return Map.of("mimeType",mimeType,"data",data);
+        } finally {
+            if (!Objects.isNull(oneTimeDfSession) && oneTimeDfSession.isConnected())
+                oneTimeDfSession.disconnect();
         }
-        return Map.of("mimeType",mimeType,"data",data);
     }
 
     public boolean validateTicket(String ticket) throws DfException {
