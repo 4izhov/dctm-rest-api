@@ -186,4 +186,14 @@ public class DctmApiController {
                 .body(new ByteArrayResource(data));
     }
 
+    @PostMapping("/dump")
+    public ResponseEntity<String> handleDump(HttpServletRequest httpServletRequest)
+            throws DfException {
+        String dump = dctmService.getDump(
+                httpServletRequest.getHeader(httpHeaderNameDctmTicket));
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_PLAIN)
+                .contentLength(dump.length())
+                .body(dump);
+    }
 }

@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 @Service
 public class DctmService {
@@ -56,6 +55,7 @@ public class DctmService {
                 .userName(userName)
                 .userTicket(dfSession.getLoginTicketEx(userName,"global",
                         ticketValidityTimeout,false,null))
+//                .userTicket(dfSession.getLoginTicketForUser(userName))
                 .build();
     }
 
@@ -155,10 +155,15 @@ public class DctmService {
     }
 
     private String extractUserNameFromTicket(String ticket) throws DfException {
-        return Arrays.stream(dfClient.getLoginTicketDiagnostics(ticket).split("\r\n"))
-                .filter(e->e.contains("User"))
-                .collect(Collectors.joining())
-                .split(":")[1].trim();
+        String dump = getDump(ticket);
+        return dump
+                .substring(dump.indexOf("User"),dump.indexOf("Domain"))
+                .split(":")[1]
+                .trim();
+    }
+
+    public String getDump(String value) throws DfException {
+        return dfClient.getLoginTicketDiagnostics(value);
     }
 
     private enum TaskState {
